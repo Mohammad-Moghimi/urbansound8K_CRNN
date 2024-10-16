@@ -1,26 +1,36 @@
+
 import numpy as np
 import pandas as pd
 from collections import OrderedDict
-from dcase_util.data import DecisionEncoder  # Ensure you have dcase_util installed
+import copy
+import scipy.signal
+
+class DecisionEncoder:
+    def __init__(self, label_list=None):
+        self.label_list = label_list
+
+    def find_contiguous_regions(self, activity_array):
+        change_indices = np.logical_xor(activity_array[1:], activity_array[:-1]).nonzero()[0]
+        change_indices += 1
+
+        if activity_array[0]:
+            change_indices = np.r_[0, change_indices]
+
+        if activity_array[-1]:
+            change_indices = np.r_[change_indices, activity_array.size]
+
+        return change_indices.reshape((-1, 2))
 
 class ManyHotEncoder:
     """
     Encode labels into numpy arrays where 1 corresponds to the presence of the class and 0 absence.
     Supports strong labels (with onset and offset times) for multi-label problems.
-
-    Args:
-        labels: list, the classes to encode
-        audio_len: float, length of the audio in seconds
-        frame_len: int, frame length in samples
-        frame_hop: int, hop length in samples
-        net_pooling: int, pooling factor of the network (default: 1)
-        fs: int, sampling frequency (default: 16000)
     """
 
     def __init__(
         self, labels, audio_len, frame_len, frame_hop, net_pooling=1, fs=16000
     ):
-        if isinstance(labels, (np.ndarray, np.array)):
+        if isinstance(labels, np.ndarray):
             labels = labels.tolist()
         elif isinstance(labels, (dict, OrderedDict)):
             labels = list(labels.keys())
@@ -32,6 +42,7 @@ class ManyHotEncoder:
         self.net_pooling = net_pooling
         n_frames = self.audio_len * self.fs
         self.n_frames = int(int((n_frames / self.frame_hop)) / self.net_pooling)
+        self.decision_encoder = DecisionEncoder(label_list=self.labels)
 
     def _time_to_frame(self, time):
         samples = time * self.fs
@@ -43,16 +54,6 @@ class ManyHotEncoder:
         return np.clip(frame, a_min=0, a_max=self.audio_len)
 
     def encode_strong_df(self, label_df):
-        """
-        Encode strong labels into a numpy array.
-
-        Args:
-            label_df: pandas DataFrame containing 'onset', 'offset', and 'event_label' columns
-
-        Returns:
-            numpy.array
-            Encoded labels of shape (n_frames, n_classes)
-        """
         y = np.zeros((self.n_frames, len(self.labels)))
         if not label_df.empty and {"onset", "offset", "event_label"}.issubset(label_df.columns):
             for _, row in label_df.iterrows():
@@ -66,20 +67,10 @@ class ManyHotEncoder:
         return y
 
     def decode_strong(self, labels):
-        """
-        Decode the encoded strong labels.
-
-        Args:
-            labels: numpy.array, the encoded labels to be decoded
-
-        Returns:
-            list
-            Decoded labels, list of [label, onset, offset]
-        """
         result_labels = []
         for i, label_column in enumerate(labels.T):
-            change_indices = DecisionEncoder().find_contiguous_regions(label_column)
-            # Append [label, onset, offset] to the result list
+            activity_array = label_column.astype(bool)
+            change_indices = self.decision_encoder.find_contiguous_regions(activity_array)
             for row in change_indices:
                 onset_time = self._frame_to_time(row[0])
                 offset_time = self._frame_to_time(row[1])
