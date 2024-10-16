@@ -1,3 +1,13 @@
+# main.py
+
+from encoder import ManyHotEncoder
+from collections import OrderedDict
+import pandas as pd
+import numpy as np
+
+
+
+
 def get_encoder(config):
     """
     Initialize the ManyHotEncoder for the UrbanSound8K dataset.
