@@ -20,9 +20,11 @@ def to_mono(mixture, random_ch=False):
     return mixture
 
 def pad_audio(audio, target_len, fs, test=False):
+    target_len = int(target_len)  # Ensure target_len is an integer
     if audio.shape[-1] < target_len:
+        pad_amount = int(target_len - audio.shape[-1])
         audio = torch.nn.functional.pad(
-            audio, (0, target_len - audio.shape[-1]), mode="constant"
+            audio, (0, pad_amount), mode="constant"
         )
         padded_indx = [target_len / len(audio)]
         onset_s = 0.000
@@ -75,8 +77,11 @@ class StronglyAnnotatedSet(Dataset):
     ):
         self.encoder = encoder
         self.fs = fs
+
+        # Ensure that self.pad_to_sec is defined before it's used
         self.pad_to_sec = pad_to  # pad_to in seconds
-        self.pad_to = pad_to * fs  # pad_to in samples
+        self.pad_to = int(pad_to * fs)  # pad_to in samples
+
         self.return_filename = return_filename
         self.random_channel = random_channel
         self.multisrc = multisrc
@@ -100,16 +105,17 @@ class StronglyAnnotatedSet(Dataset):
         self.examples = {}
         for _, row in annotations_df.iterrows():
             filename = row["slice_file_name"]
+            fold = f"fold{row['fold']}"  # Include fold number
             if filename not in self.examples:
                 self.examples[filename] = {
-                    "mixture": os.path.join(audio_folder, filename),
+                    "mixture": os.path.join(audio_folder, fold, filename),
                     "events": [],
                 }
             self.examples[filename]["events"].append(
                 {
                     "event_label": row["class"],
                     "onset": 0.0,
-                    "offset": self.pad_to_sec,  # Full duration
+                    "offset": self.pad_to_sec,
                 }
             )
 
