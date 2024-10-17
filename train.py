@@ -75,16 +75,44 @@ def single_run(
         if not evaluation:
         devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
 
-        desed_devtest_dataset = StronglyAnnotatedSet(
-            config["data"]["test_folder"],
-            devtest_df,
-            encoder,
-            return_filename=True,
-            pad_to=config["data"]["audio_max_len"],
-            feats_pipeline=feature_extraction,
-            embeddings_hdf5_file=get_embeddings_name(config, "devtest"),
-            embedding_type=config["net"]["embedding_type"],
-            mask_events_other_than=mask_events_desed,
-            test=True,
-        )
+# Training dataset
+train_dataset = StronglyAnnotatedSet(
+    audio_folder=config_data['audio_train_folder'],
+    annotations_df=pd.read_csv(config_data['train_full_csv']),
+    encoder=encoder,
+    pad_to=config["data"]["audio_max_len"],
+    fs=config["data"]["fs"],
+    return_filename=False,
+    random_channel=False,
+    multisrc=False,
+    feats_pipeline=None,  # Replace with your feature extraction pipeline if you have one
+    test=False,
+)
 
+# Validation dataset
+val_dataset = StronglyAnnotatedSet(
+    audio_folder=config_data['audio_val_folder'],
+    annotations_df=pd.read_csv(config_data['val_full_csv']),
+    encoder=encoder,
+    pad_to=config["data"]["audio_max_len"],
+    fs=config["data"]["fs"],
+    return_filename=False,
+    random_channel=False,
+    multisrc=False,
+    feats_pipeline=None,
+    test=True,
+)
+
+# Test dataset
+test_dataset = StronglyAnnotatedSet(
+    audio_folder=config_data['test_folder'],
+    annotations_df=pd.read_csv(config_data['test_full_csv']),
+    encoder=encoder,
+    pad_to=config["data"]["audio_max_len"],
+    fs=config["data"]["fs"],
+    return_filename=True,  # Set to True if you want to get the filename when accessing samples
+    random_channel=False,
+    multisrc=False,
+    feats_pipeline=None,
+    test=True,
+)
