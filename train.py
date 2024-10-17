@@ -72,3 +72,19 @@ def single_run(
 
     ##### data prep test ##########
     encoder = get_encoder(config)
+        if not evaluation:
+        devtest_df = pd.read_csv(config["data"]["test_tsv"], sep="\t")
+
+        desed_devtest_dataset = StronglyAnnotatedSet(
+            config["data"]["test_folder"],
+            devtest_df,
+            encoder,
+            return_filename=True,
+            pad_to=config["data"]["audio_max_len"],
+            feats_pipeline=feature_extraction,
+            embeddings_hdf5_file=get_embeddings_name(config, "devtest"),
+            embedding_type=config["net"]["embedding_type"],
+            mask_events_other_than=mask_events_desed,
+            test=True,
+        )
+
